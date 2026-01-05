@@ -7,12 +7,82 @@ Demo script showcasing the embeddings functionality including:
 """
 import os
 import numpy as np
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from config import ModelConfig, SearchConfig, DocumentConfig
 from document_processor import DocumentProcessor, DocumentChunk
 from embedding_utils import EmbeddingGenerator
 from search import SemanticSearch, SearchResult
+
+def get_user_input(prompt: str, default: str = "") -> str:
+    """Get input from user with a default value."""
+    if default:
+        user_input = input(f"{prompt} (or press Enter to use default): ")
+        return user_input.strip() if user_input.strip() else default
+    return input(f"{prompt}: ").strip()
+
+def get_documents_from_user() -> List[DocumentChunk]:
+    """Get documents from user input or use default."""
+    print("\n" + "="*80)
+    print("DOCUMENT INPUT")
+    print("="*80)
+    
+    use_default = input("Use default document about AI? (y/n, default: y): ").strip().lower() != 'n'
+    
+    if use_default:
+        # Default document about AI
+        document = """
+        Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to 
+        natural intelligence displayed by animals including humans. AI research has been defined 
+        as the field of study of intelligent agents, which refers to any system that perceives 
+        its environment and takes actions that maximize its chance of achieving its goals.
+        
+        The traditional problems (or goals) of AI research include reasoning, knowledge 
+        representation, planning, learning, natural language processing, perception, and the 
+        ability to move and manipulate objects. General intelligence (the ability to solve an 
+        arbitrary problem) is among the field's long-term goals.
+        """
+    else:
+        document = get_user_input("\nEnter your document text:")
+    
+    # Process the document
+    doc_processor = DocumentProcessor(
+        chunk_size=150,
+        chunk_overlap=30
+    )
+    
+    chunks = doc_processor.chunk_document(
+        document,
+        metadata={"source": "user_input" if not use_default else "default_ai_document"}
+    )
+    
+    print(f"\nProcessed document into {len(chunks)} chunks.")
+    return chunks
+
+def get_queries_from_user() -> List[str]:
+    """Get search queries from user or use default."""
+    print("\n" + "="*80)
+    print("SEARCH QUERIES")
+    print("="*80)
+    
+    use_default = input("Use default search queries? (y/n, default: y): ").strip().lower() != 'n'
+    
+    if use_default:
+        return [
+            "What is artificial intelligence?",
+            "What are the goals of AI research?",
+            "How do machines demonstrate intelligence?"
+        ]
+    else:
+        queries = []
+        print("\nEnter your search queries (one per line, press Enter twice to finish):")
+        while True:
+            query = input("> ").strip()
+            if not query and queries:  # Allow empty line to finish
+                break
+            if query:  # Skip empty lines
+                queries.append(query)
+        return queries if queries else ["What is artificial intelligence?"]  # Fallback to default if no queries provided
 
 def print_search_results(results: List[SearchResult], query: str = None):
     """Helper function to print search results."""
@@ -36,37 +106,23 @@ def demo_document_processing():
     print("DOCUMENT PROCESSING DEMO")
     print("="*80)
     
-    # Sample document
-    document = """
-    Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to 
-    natural intelligence displayed by animals including humans. AI research has been defined 
-    as the field of study of intelligent agents, which refers to any system that perceives 
-    its environment and takes actions that maximize its chance of achieving its goals.
+    # Get documents from user or use default
+    chunks = get_documents_from_user()
     
-    The traditional problems (or goals) of AI research include reasoning, knowledge 
-    representation, planning, learning, natural language processing, perception, and the 
-    ability to move and manipulate objects. General intelligence (the ability to solve an 
-    arbitrary problem) is among the field's long-term goals.
-    """
-    
-    # Initialize document processor
-    doc_processor = DocumentProcessor(
-        chunk_size=150,
-        chunk_overlap=30
-    )
-    
-    # Process document
-    chunks = doc_processor.chunk_document(
-        document,
-        metadata={"source": "AI Wikipedia Article"}
-    )
-    
-    # Display chunks
-    print(f"\nSplit document into {len(chunks)} chunks:")
-    for i, chunk in enumerate(chunks, 1):
-        print(f"\nChunk {i} (length: {len(chunk.text)}):")
-        print(f"{chunk.text[:100]}..." if len(chunk.text) > 100 else chunk.text)
-        print(f"Metadata: {chunk.metadata}")
+    # Display chunks if not too many
+    if len(chunks) <= 10:
+        print(f"\nSplit document into {len(chunks)} chunks:")
+        for i, chunk in enumerate(chunks, 1):
+            print(f"\nChunk {i} (length: {len(chunk.text)}):")
+            print(f"{chunk.text[:100]}..." if len(chunk.text) > 100 else chunk.text)
+            print(f"Metadata: {chunk.metadata}")
+    else:
+        print(f"\nSplit document into {len(chunks)} chunks. Showing first 3 chunks as preview:")
+        for i, chunk in enumerate(chunks[:3], 1):
+            print(f"\nChunk {i} (length: {len(chunk.text)}):")
+            print(f"{chunk.text[:100]}..." if len(chunk.text) > 100 else chunk.text)
+            print(f"Metadata: {chunk.metadata}")
+        print(f"\n... and {len(chunks) - 3} more chunks.")
     
     return chunks
 
@@ -80,26 +136,36 @@ def demo_semantic_search(documents: List[DocumentChunk]):
     model_config = ModelConfig()
     search_config = SearchConfig()
     
+    # Allow user to configure search parameters
+    try:
+        top_k = int(get_user_input(
+            f"\nNumber of results per query (default: {search_config.top_k})",
+            str(search_config.top_k)
+        ))
+        search_config.top_k = max(1, min(10, top_k))  # Limit between 1-10
+        
+        threshold = float(get_user_input(
+            f"Minimum similarity score (0.0-1.0, default: {search_config.similarity_threshold})",
+            str(search_config.similarity_threshold)
+        ))
+        search_config.similarity_threshold = max(0.0, min(1.0, threshold))
+    except ValueError:
+        print("Using default search parameters due to invalid input.")
+    
     embedding_generator = EmbeddingGenerator(
         model_name=model_config.model_name,
         device=model_config.device
     )
-
-    print(f"\nUsing search config: {search_config}")
-    print(embedding_generator)
-
     
     search_engine = SemanticSearch(embedding_generator)
-    
-    # Add documents to search index
     search_engine.add_documents(documents)
     
-    # Perform searches
-    queries = [
-        "What is artificial intelligence?",
-        "What are the goals of AI research?",
-        "How do machines demonstrate intelligence?"
-    ]
+    # Get queries from user or use default
+    queries = get_queries_from_user()
+    
+    print("\n" + "="*80)
+    print("SEARCH RESULTS")
+    print("="*80)
     
     for query in queries:
         results = search_engine.search(
