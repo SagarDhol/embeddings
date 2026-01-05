@@ -1,0 +1,162 @@
+# Embeddings Demo Project
+
+## Project Overview
+This project demonstrates various aspects of working with text embeddings, including document processing, embedding generation, semantic search, and vector arithmetic. It's built with a modular architecture for better maintainability and extensibility.
+
+## Project Structure
+```
+embeddings/
+├── config.py           # Configuration settings and constants
+├── document_processor.py # Document chunking and text processing
+├── embedding_utils.py  # Embedding generation and utilities
+├── search.py          # Semantic search implementation
+├── demo.py            # Demo script showcasing all features
+└── requirements.txt   # Project dependencies
+```
+
+## Key Concepts
+
+### 1. Document Processing (`document_processor.py`)
+- **Purpose**: Handles text preprocessing and chunking
+- **Key Features**:
+  - Text cleaning and normalization
+  - Smart chunking with configurable size and overlap
+  - Metadata handling for document chunks
+
+### 2. Embedding Generation (`embedding_utils.py`)
+- **Purpose**: Generates and manages text embeddings
+- **Key Features**:
+  - Uses sentence-transformers for high-quality embeddings
+  - Batch processing for efficiency
+  - Normalization and similarity calculations
+  - Vector arithmetic operations
+
+### 3. Semantic Search (`search.py`)
+- **Purpose**: Implements semantic search functionality
+- **Key Features**:
+  - Fast similarity search
+  - Configurable result thresholds
+  - Support for metadata filtering
+  - Most similar pairs identification
+
+## How to Test the Project
+
+### 1. Basic Setup
+1. Create and activate a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### 2. Running the Demo
+Run the demo script to see all features in action:
+```bash
+python demo.py
+```
+
+### 3. Testing Individual Components
+
+#### Document Processing
+1. Import and initialize the document processor:
+   ```python
+   from document_processor import DocumentProcessor
+   
+   processor = DocumentProcessor(chunk_size=200, chunk_overlap=50)
+   ```
+
+2. Process a document:
+   ```python
+   text = "Your long document text here..."
+   chunks = processor.chunk_document(text, metadata={"source": "test"})
+   print(f"Created {len(chunks)} chunks")
+   ```
+
+#### Embedding Generation
+1. Generate embeddings for text:
+   ```python
+   from embedding_utils import EmbeddingGenerator
+   
+   embedder = EmbeddingGenerator()
+   texts = ["First text", "Second text"]
+   embeddings = embedder.get_embeddings(texts)
+   print(f"Generated {len(embeddings)} embeddings")
+   ```
+
+#### Semantic Search
+1. Set up search:
+   ```python
+   from search import SemanticSearch
+   
+   search_engine = SemanticSearch(embedder)
+   search_engine.add_documents(chunks)
+   ```
+
+2. Perform a search:
+   ```python
+   results = search_engine.search("your search query", top_k=3)
+   for result in results:
+       print(f"Score: {result.score:.3f}")
+       print(f"Text: {result.text[:100]}...")
+   ```
+
+## Example Use Cases
+
+### 1. Document Similarity
+```python
+# Find most similar document pairs
+texts = ["AI is transforming industries", "Machine learning is a subset of AI", "The weather is nice today"]
+pairs = search_engine.most_similar_pairs(texts)
+for text1, text2, score in pairs:
+    print(f"Similarity: {score:.3f}")
+    print(f"- {text1}")
+    print(f"- {text2}\n")
+```
+
+### 2. Vector Arithmetic
+```python
+# Example: king - man + woman ≈ queen
+king = embedder.get_embeddings(["king"])[0]
+man = embedder.get_embeddings(["man"])[0]
+woman = embedder.get_embeddings(["woman"])[0]
+
+# Calculate queen vector
+queen_vector = embedder.vector_arithmetic(
+    positive=[king, woman],
+    negative=[man]
+)
+```
+
+## Troubleshooting
+1. **Model Download Issues**:
+   - First run will download the pre-trained model (about 90MB)
+   - Ensure you have a stable internet connection
+
+2. **Memory Issues**:
+   - Reduce batch size in `ModelConfig` if you encounter memory errors
+   - Process documents in smaller batches for large collections
+
+3. **Performance Tips**:
+   - Use GPU if available by setting `device="cuda"` in `ModelConfig`
+   - Increase batch size for faster processing if you have sufficient memory
+
+## Extending the Project
+1. Add support for different embedding models
+2. Implement document storage and retrieval
+3. Add a web interface using Flask/FastAPI
+4. Add support for other languages
+
+## Dependencies
+- Python 3.7+
+- sentence-transformers
+- numpy
+- scikit-learn
+- pandas
+- tqdm
+
+## License
+This project is open source and available under the MIT License.
